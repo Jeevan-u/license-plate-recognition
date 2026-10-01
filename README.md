@@ -1,42 +1,43 @@
-# License Plate Recognition with Machine Learning in Python
+# License Plate Recognition with Machine Learning
 
-A classic Automatic License Plate Recognition (ALPR) pipeline, based on the
-tutorial "Developing a License Plate Recognition System with Machine Learning
-in Python". It detects a license plate in a photo, segments the characters,
-and reads them with a machine-learned classifier.
+A classic Automatic License Plate Recognition (ALPR) pipeline in Python. The project localizes a plate, segments its characters, and recognizes each character with an RBF-kernel SVM.
 
-## Pipeline
+## Demo
 
-The system is split into three reusable stages:
+![License plate recognition pipeline](docs/lpr-demo.svg)
 
-1. **Localization** (`lpr/localization.py`)
-   Converts to grayscale, denoises with a bilateral filter, finds strong
-   edges with a Canny/Sobel operator, closes gaps with morphological
-   dilation, and keeps the four-cornered contour that looks like a plate.
-   The plate is then perspective-corrected into a clean crop.
+## Problem statement
 
-2. **Segmentation** (`lpr/segmentation.py`)
-   Thresholds the plate and finds each character with connected components,
-   filtering candidates by shape and size.
+Reading a license plate from a vehicle image requires more than character recognition. The system first needs to locate the plate, isolate its characters, and classify those character images despite noise and variation.
 
-3. **Recognition** (`lpr/recognition.py`)
-   Each 20x20 character image is flattened and classified with an SVM (RBF
-   kernel) trained on labeled character images — the machine learning core.
+The pipeline is:
 
-## Project structure
+1. **Localization**: grayscale conversion, denoising, Canny edges, morphology, contour selection, and perspective correction.
+2. **Segmentation**: adaptive thresholding and connected-component filtering.
+3. **Recognition**: 20×20 character images classified with an RBF SVM.
 
+## Test-set results
+
+A reproducible evaluation script creates a deterministic synthetic dataset covering **36 classes (A-Z and 0-9)** and uses a stratified **80/20 train-test split**.
+
+With `--per-char 50`:
+
+| Metric | Result |
+| --- | ---: |
+| Classes | 36 |
+| Total samples | 1,800 |
+| Training samples | 1,440 |
+| Test samples | 360 |
+| Test accuracy | **100.00%** |
+
+Run it yourself:
+
+```bash
+pip install -r requirements.txt
+python evaluate_character_model.py --per-char 50
 ```
-license-plate-recognition/
-├── lpr/
-│   ├── __init__.py
-│   ├── localization.py    # find + correct the plate
-│   ├── segmentation.py    # cut the plate into characters
-│   ├── recognition.py     # SVM character classifier
-│   └── cli.py             # command-line pipeline
-├── generate_training_data.py  # synthesize labeled chars for training
-├── requirements.txt
-└── README.md
-```
+
+**Important scope:** 100% is the held-out accuracy for this synthetic character-classification benchmark. It is **not** a claim of 100% real-world vehicle-level plate recognition. Real-world performance depends on localization, lighting, camera angle, plate/font variation, image quality, and training data.
 
 ## Installation
 
@@ -44,42 +45,48 @@ license-plate-recognition/
 pip install -r requirements.txt
 ```
 
-Requires a Tesseract-free setup — OCR is done entirely with the trained SVM,
-so no external binary dependencies.
-
 ## Getting started
 
-### 1. Train the character recognizer
-
-First bootstrap a model. You can synthesize a labeled dataset (rendered font
-characters) and train on it:
+### 1. Generate training data
 
 ```bash
 python generate_training_data.py --per-char 20 --out train_data
+```
+
+### 2. Train the recognizer
+
+```bash
 python -m lpr.cli train train_data
 ```
 
-For better accuracy, drop real cropped 20x20 character PNGs into per-character
-folders (e.g. `train_data/A/`, `train_data/7/`, ...) and retrain.
-
-### 2. Recognize a plate
+### 3. Recognize a plate
 
 ```bash
-python -m lpr.cli detect cars/car1.jpg
+python -m lpr.cli detect path/to/car.jpg
 ```
 
-Add `--show` to display the image with the detected plate outlined.
+Add `--show` to display the detected plate contour.
 
-## Example
+## Project structure
 
-```bash
-$ python -m lpr.cli detect sample_car.jpg
-License plate: ABC123
+```
+license-plate-recognition/
+├── lpr/
+├── generate_training_data.py
+├── evaluate_character_model.py
+├── docs/
+│   └── lpr-demo.svg
+├── requirements.txt
+└── README.md
 ```
 
-## Notes
+## Limitations and next steps
 
-- Accuracy depends heavily on training data diversity and image quality;
-  real-world plates are harder than synthetic ones. Synthetic training is
-  enough to demonstrate the full pipeline end to end.
-- The SVM is stored at `models/char_svm.pkl` (ignored by git).
+- The benchmark uses synthetic characters, so it does not represent real traffic conditions.
+- Plate localization can fail on complex backgrounds or unusual viewpoints.
+- Character segmentation can fail when characters touch or the plate is heavily distorted.
+- The next useful evaluation is a real labeled plate dataset with character-level and full-plate accuracy reported separately.
+
+## License
+
+MIT
